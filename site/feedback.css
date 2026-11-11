@@ -1,0 +1,15 @@
+#feedback-dialog{color:#e5edf3;background:#17232d;border:1px solid #577080;border-radius:16px;width:min(620px,calc(100vw - 32px));max-height:88dvh;padding:24px;box-sizing:border-box}
+#feedback-dialog::backdrop{background:#0009}
+#feedback-dialog h2{margin:0 0 8px;font-size:23px}
+#feedback-message{line-height:1.65}
+#feedback-list{display:grid;gap:12px;max-height:48dvh;overflow:auto;margin:16px 0}
+.feedback-card{border:1px solid #405466;border-radius:10px;padding:16px;background:#1e2e3a}
+.feedback-card h3{margin:0 0 8px;font-size:16px;overflow-wrap:anywhere}
+.feedback-card p{font-size:14px;line-height:1.6;color:#c6d3de}
+.feedback-actions,.feedback-footer{display:flex;gap:8px;flex-wrap:wrap}
+.feedback-confirm{display:flex;gap:10px;align-items:center;margin-top:16px;min-height:44px;cursor:pointer}
+.feedback-confirm input{width:20px;height:20px;accent-color:#80dbb6;flex-shrink:0}
+#feedback-dialog button{min-height:44px;white-space:normal}
+#feedback-audio{width:100%;margin:8px 0}
+#feedback-dialog .muted{font-size:13px;line-height:1.6}
+@media(max-width:600px){#feedback-dialog{padding:18px}.feedback-footer button{flex:1}.feedback-card{padding:12px}}

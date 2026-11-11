@@ -3,6 +3,8 @@ import {createServer} from 'node:http';
 import {readFile,mkdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {fakeGitHub} from './fake-github.mjs';
+import {sha256} from '../site/records.mjs';
+import {featureVersion} from '../site/audio-features.mjs';
 const {chromium}=await import(process.env.PLAYWRIGHT_PATH||'playwright');
 const root=new URL('../site/',import.meta.url);
 const server=createServer(async(req,res)=>{
@@ -13,7 +15,9 @@ const url=`http://127.0.0.1:${server.address().port}`;
 const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{})});
 try{
  const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),fake=fakeGitHub(),errors=[];
- page.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message);});page.on('console',m=>{if(m.type()==='error')console.error('CONSOLE',m.text());});page.on('dialog',dialog=>dialog.accept());
+  const seed=new TextEncoder().encode(JSON.stringify({features:featureVersion,rows:Array.from({length:6},(_,i)=>({group:'synthetic-reference-'+i,label:'normal_air',vector:Array(273).fill(i*.01)}))}));
+ const seedSha=await sha256(seed);fake.blobs.set(seedSha,seed);fake.trees.set('t0',[{path:'feedback/reference.json',sha:seedSha,size:seed.length,mode:'100644',type:'blob'}]);
+ page.on('pageerror' ,e=>{errors.push(e.message);console.error('PAGE ERROR',e.message);});page.on('console',m=>{if(m.type()==='error')console.error('CONSOLE',m.text());});page.on('dialog',dialog=>dialog.accept());
  await page.route('https://api.github.com/**',async route=>{
   const req=route.request();const target=req.url().replace('/repos/pillkyu/Milk_Steaming_Labeling_Data','/repos/test/data');
   if(req.headers().authorization!=='Bearer test-token'){await route.fulfill({status:401,body:'{}'});return;}
@@ -39,14 +43,44 @@ try{
  await page.locator('#apply').click();
  await page.locator('#save-record').waitFor({state:'visible'});assert.equal(fake.writes.length,0,'local editing must not commit');
  await page.reload();await login();await page.locator('#regions').filter({hasText:'정상 공기주입'}).waitFor();
- await page.locator('#save-record').click();await page.waitForFunction(()=>document.querySelector('#save-state').textContent==='GitHub 저장 완료');
+ await page.locator('#save-record').click();await page.locator('.feedback-card').waitFor();
+ assert.equal(fake.writes.length,0,'warning must not save before confirmation');
+ assert.equal(await page.locator('#feedback-save').isDisabled(),true);
+ await page.getByRole('button',{name:'라벨·경계 수정',exact:true}).click();
+ await page.locator('#feedback-dialog').waitFor({state:'hidden'});assert.equal(fake.writes.length,0);
+ assert.equal(await page.locator('#start').inputValue(),'0.000');
+ await page.locator('#complete').click();await page.locator('.feedback-card').waitFor();
+ await page.locator('#feedback-cancel').click();assert.equal(await page.locator('#review-badge').textContent(),'검수 중');assert.equal(fake.writes.length,0);
+ await page.locator('#save-record').click();await page.locator('.feedback-card').waitFor();
+ await page.getByRole('button',{name:'▶ 이 구간 듣기',exact:true}).click();
+ await page.waitForFunction(()=>!document.querySelector('#feedback-audio').paused);
+ await mkdir(new URL('../test-results/',import.meta.url),{recursive:true});
+ await page.screenshot({path:fileURLToPath(new URL('../test-results/feedback-desktop.png',import.meta.url))});
+ await page.setViewportSize({width:390,height:844});
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await page.screenshot({path:fileURLToPath(new URL('../test-results/feedback-mobile.png',import.meta.url))});
+ await page.setViewportSize({width:1440,height:1000});
+ await page.getByLabel('확인했으며 이 라벨이 맞습니다').check();await page.locator('#feedback-save').click();
+ await page.waitForFunction(()=>document.querySelector('#save-state').textContent==='GitHub 저장 완료');
  assert.equal(fake.writes.filter(w=>w.path.includes('/git/refs/')).length,1);
  assert.equal(await page.locator('#review-badge').textContent(),'검수 중');
  await page.locator('#complete').click();await page.waitForFunction(()=>document.querySelector('#review-badge').textContent==='검수 완료'&&document.querySelector('#save-state').textContent==='GitHub 저장 완료');
  await page.reload();await login();await page.locator('#review-badge').filter({hasText:'검수 완료'}).waitFor();await page.waitForFunction(()=>document.querySelector('#video').readyState>=1);
  const storage=await page.evaluate(async()=>({local:JSON.stringify(localStorage),session:JSON.stringify(sessionStorage),input:document.querySelector('#access-token').value}));assert.ok(!JSON.stringify(storage).includes('test-token'));
- const list=[...fake.trees.get(fake.commits.get(fake.head).tree.sha)];assert.equal(list.length,2);assert.ok(list.some(e=>e.path.endsWith('/original.wav')));assert.ok(list.some(e=>e.path.endsWith('/record.json')));
+ const list=[...fake.trees.get(fake.commits.get(fake.head).tree.sha)];assert.equal(list.length,3);assert.ok(list.some(e=>e.path.endsWith('/original.wav')));assert.ok(list.some(e=>e.path.endsWith('/record.json')));
  await mkdir(new URL('../test-results/',import.meta.url),{recursive:true});await page.screenshot({path:fileURLToPath(new URL('../test-results/editor.png',import.meta.url))});
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:fileURLToPath(new URL('../test-results/mobile.png',import.meta.url))});
+ const recordEntry=list.find(e=>e.path.endsWith('/record.json'));
+ const savedRecord=JSON.parse(new TextDecoder().decode(fake.blobs.get(recordEntry.sha)));
+ assert.equal(savedRecord.review.feedback.checks[0].decision,'confirmed');
+ assert.equal(savedRecord.review.feedback.checks[0].vector.length,273);
+ // Changing the interval invalidates its old confirmation; an unavailable seed can be bypassed explicitly.
+ await page.locator('#start').fill('0');await page.locator('#end').fill('0.2');await page.locator('[data-label="metallic_squeal"]').click();await page.locator('#apply').click();
+ await page.locator('#save-record').click();await page.locator('.feedback-card').first().waitFor();
+ assert.ok((await page.locator('#feedback-list').textContent()).includes('아주 짧은'));
+ await page.locator('#feedback-cancel').click();
+ const headTree=fake.commits.get(fake.head).tree.sha;fake.trees.set(headTree,fake.trees.get(headTree).filter(e=>e.path!=='feedback/reference.json'));
+ await page.locator('#save-record').click();await page.locator('#feedback-message').filter({hasText:'확인하지 못했습니다'}).waitFor();
+ await page.locator('#feedback-skip').click();await page.waitForFunction(()=>document.querySelector('#save-state').textContent==='GitHub 저장 완료');
  assert.deepEqual(errors,[]);console.log('PASS: access denial, empty state, synthetic upload, playback, labeling, draft recovery, explicit atomic save, review/reopen, no token persistence.');
 }finally{await browser.close();server.close();}
