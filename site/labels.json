@@ -1,0 +1,132 @@
+{
+  "schema": "puffin-sound-labels-v6-purge",
+  "classes": [
+    {
+      "id": "normal_air",
+      "name": "정상 공기주입",
+      "short": "정상 공기",
+      "key": "1",
+      "color": "#63d9b0",
+      "description": "정상적으로 공기를 주입하는 소리. 기존 공기주입 라벨도 새 기준으로 확인합니다.",
+      "isSteaming": true
+    },
+    {
+      "id": "surface_sputter",
+      "name": "상단 노즐 · 파바박",
+      "short": "파바박",
+      "key": "2",
+      "color": "#f6ba67",
+      "description": "노즐이 상단에 위치할 때 거품이 생기며 파바박 튀는 소리.",
+      "isSteaming": true
+    },
+    {
+      "id": "metallic_squeal",
+      "name": "공기 부족 · 쇳소리",
+      "short": "쇳소리",
+      "key": "3",
+      "color": "#f48f9c",
+      "description": "공기 없이 우유에 들어갔을 때 들리는 금속성 소리.",
+      "isSteaming": true
+    },
+    {
+      "id": "balanced_rolling",
+      "name": "적정 공기 · 롤링",
+      "short": "적정 롤링",
+      "key": "4",
+      "color": "#7eaeef",
+      "description": "공기가 적당히 들어간 뒤 안정적으로 롤링하는 소리.",
+      "isSteaming": true
+    },
+    {
+      "id": "excess_bubbling",
+      "name": "고온 · 끓는 소리",
+      "short": "고온 끓는음",
+      "key": "5",
+      "color": "#c1a0f2",
+      "description": "온도가 높을 때 들리는 끓는 듯한 소리.",
+      "isSteaming": true
+    },
+    {
+      "id": "steam_start",
+      "name": "스티밍 시작소리",
+      "short": "스티밍 시작",
+      "key": "6",
+      "color": "#9ba7b4",
+      "description": "스티밍을 시작할 때 처음 들리는 소리. 정상 공기주입·롤링 구간과 구별해 표시합니다.",
+      "isSteaming": true,
+      "purpose": "start_trigger"
+    },
+    {
+      "id": "steam_end",
+      "name": "스티밍 종료소리",
+      "short": "스티밍 종료",
+      "key": "7",
+      "color": "#e38964",
+      "isSteaming": true,
+      "purpose": "end_trigger",
+      "description": "스팀이 실제로 끊기는 순간부터 잔향이 사라지는 종료 구간을 표시합니다. 시작·종료 규칙 검증 전용이며 공기주입·롤링 분류 학습에는 넣지 않습니다."
+    },
+    {
+      "id": "non_steam",
+      "name": "비스티밍 소리 · false",
+      "short": "비스티밍",
+      "key": "0",
+      "color": "#bbc4ce",
+      "isSteaming": false,
+      "description": "우유 스티밍 과정이 아닌 소리. 대화·그라인더·식기·숨소리 등을 대조 데이터(false)로 포함합니다. 청소용 스팀 방출은 C로 지정하면 비스티밍 정답과 종료 단서가 함께 기록됩니다."
+    }
+  ],
+  "annotationOnly": [
+    {
+      "id": "steam_purge",
+      "name": "청소용 스팀 방출 · 비스티밍 + 종료 단서",
+      "short": "청소 방출",
+      "key": "C",
+      "color": "#e8ca70",
+      "description": "우유 스티밍이 아닌 노즐 청소용 방출음입니다. 비스티밍 정답과 청소 방출 종료 단서를 함께 저장합니다. 시작 전 청소도 같은 소리로 표시하며, 종료 판단에는 앞선 스티밍 진행 확인이 필요합니다.",
+      "isSteaming": false,
+      "baseLabel": "non_steam",
+      "endSignal": "steam_purge",
+      "purpose": "conditional_end_trigger"
+    },
+    {
+      "id": "unknown",
+      "name": "미라벨 · 학습 제외",
+      "short": "미라벨",
+      "key": "U",
+      "color": "#3d4a5a",
+      "description": "아직 확인하지 않았거나 종류를 결정하지 못한 구간. 비스티밍(false) 정답으로 간주하지 않으며 학습에서 제외합니다."
+    },
+    {
+      "id": "exclude",
+      "name": "구간 사용 제외",
+      "short": "사용 제외",
+      "key": "X",
+      "color": "#6c626d",
+      "description": "훼손·편집·중첩 등으로 학습에 사용하지 않을 구간."
+    },
+    {
+      "id": "air_candidate",
+      "name": "자동 후보 · 공기주입",
+      "short": "공기 후보",
+      "key": "8",
+      "color": "#a6ddc8",
+      "description": "검수 전 공기주입 초안입니다. 검수 완료를 누르면 정상 공기주입(1)으로 일괄 확정합니다. 파바박이면 먼저 2로 바꿔 주세요. 검수 전에는 학습에서 제외합니다.",
+      "isCandidate": true,
+      "confirmedLabel": "normal_air",
+      "isSteamingCandidate": true
+    },
+    {
+      "id": "rolling_candidate",
+      "name": "자동 후보 · 롤링",
+      "short": "롤링 후보",
+      "key": "9",
+      "color": "#a6badb",
+      "description": "검수 전 롤링 초안입니다. 검수 완료를 누르면 롤링(4)으로 일괄 확정합니다. 다른 소리이면 먼저 수정해 주세요. 검수 전에는 학습에서 제외합니다.",
+      "isCandidate": true,
+      "confirmedLabel": "balanced_rolling",
+      "isSteamingCandidate": true
+    }
+  ],
+  "policy": "Home steaming recordings only. Preserve original audio and exact time ranges. unknown/exclude are not negative labels. steam_purge is stored as non_steam plus endSignal=steam_purge. Review before training."
+}
