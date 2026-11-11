@@ -1,4 +1,5 @@
 import {maxBytes, maxSeconds} from './config.mjs';
+import {validateFeedback} from './feedback.mjs';
 
 export function blankReview(duration) {
  return {segments:[{id:crypto.randomUUID(),start:0,end:duration,label:'unknown'}],airEvents:[],steamPresence:'unsure',reviewed:false,excluded:false,note:''};
@@ -33,6 +34,7 @@ export function validateRecord(record, schema) {
   if(!e||!Number.isFinite(e.start)||!Number.isFinite(e.end)||e.start<end||e.start>=e.end||e.end>s.duration||(e.count!==null&&(!Number.isInteger(e.count)||e.count<1||e.count>10000))||![null,'weak','medium','strong','mixed'].includes(e.strength)||(e.count===null&&e.strength===null)||r.segments.some(p=>p.end>e.start&&p.start<e.end&&p.label!=='normal_air'))fail('공기 주입 횟수·강도 범위 오류입니다.');
   end=e.end;
  }
+ validateFeedback(r.feedback,r.segments);
  return record;
 }
 

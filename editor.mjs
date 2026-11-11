@@ -1,6 +1,8 @@
 import {paint,commitRange,dragRange,rangeBounds,segmentLabel} from './segments.mjs?v=20261106-purge';
 const $=id=>document.getElementById(id),video=$('video'),clone=v=>structuredClone(v),fmt=n=>Number(n).toFixed(3);
 import {connect} from './session.mjs';
+import {checkBeforeSave} from './feedback-ui.mjs';
+import {retainChecks} from './feedback.mjs';
 const session=await connect(),labelSchema=session.schema;
 const bootstrap={dataset:{datasetId:'milk-steaming-home-v1',labelSchema,files:session.sources()},reviews:{datasetId:'milk-steaming-home-v1',files:Object.fromEntries([...session.entries].map(([id,e])=>[id,e.record.review]))}};
 const definitions=[...labelSchema.classes,...labelSchema.annotationOnly],names=Object.fromEntries(definitions.map(d=>[d.id,d.name])),colors=Object.fromEntries(definitions.map(d=>[d.id,d.color])),shortNames=Object.fromEntries(definitions.map(d=>[d.id,d.short]));
@@ -10,7 +12,7 @@ const selectableDefinitions=definitions.filter(d=>labelSchema.classes.includes(d
 $('label-options').innerHTML=selectableDefinitions.map(d=>`<button data-label="${d.id}" style="--label-color:${d.color}" aria-pressed="false" title="${d.description}"><i></i><span>${d.name}</span><kbd>${d.key}</kbd></button>`).join('');
 const strengthNames={weak:'약함',medium:'보통',strong:'강함',mixed:'섞임'};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let uploading=false,saving=false;
+let uploading=false,saving=false,checking=false;
 let DATA,files=[],working={},revisions={},selected=0,ready=false,failed=false,pending=0,queue=Promise.resolve();
 let viewStart=0,viewEnd=1,draft=emptyDraft(),clipEnd=null,timer=0,raf=0,playToken=0,toastTimer=0;
 const drafts=new Map(),histories=new Map();
@@ -23,7 +25,7 @@ function anyDraft(){return draft.dirty||[...drafts.entries()].some(([id,d])=>id!
 function toast(text,error=false){$('toast').textContent=text;$('toast').classList.toggle('error',error);$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function status(){
  const dirty=[...session.entries.values()].filter(e=>e.dirty).length;
- $('save-state').textContent=saving?'GitHub에 저장 중…':pending?'브라우저에 임시 보관 중…':failed?'임시 보관 실패 · 작업 백업 필요':dirty?`${dirty}개 음원 · GitHub 저장 필요`:ready&&anyDraft()?'구간 편집 중':'GitHub 저장 완료';
+ $('save-state').textContent=checking?'저장 전 소리 확인 중…':saving?'GitHub에 저장 중…':pending?'브라우저에 임시 보관 중…':failed?'임시 보관 실패 · 작업 백업 필요':dirty?`${dirty}개 음원 · GitHub 저장 필요`:ready&&anyDraft()?'구간 편집 중':'GitHub 저장 완료';
  $('save-state').classList.toggle('error',failed);
  $('save-record').disabled=!ready||saving||uploading||pending>0||anyDraft();
  $('complete').disabled=!ready||saving||uploading||pending>0;
@@ -45,15 +47,19 @@ async function saveRemote(complete=false){
  if(complete){
   const value=working[id];
   if(!value.excluded&&!value.segments.some(s=>labelSchema.classes.some(d=>d.id===s.label))){toast('확정 구간을 지정하거나 사용 제외로 표시하세요.',true);return;}
-  value.reviewed=true;
  }
- await persist(id);
- $('error').hidden=true;saving=true;pending++;document.querySelector('.app-layout').inert=true;status();
+ $('error').hidden=true;saving=true;checking=true;pending++;stopPlayback();document.querySelector('.app-layout').inert=true;status();
  try{
+  const checked=await checkBeforeSave(session,id,working[id],names);
+  checking=false;status();
+  if(!checked)return;
+  if(checked.edit){const i=working[id].segments.findIndex(s=>s.id===checked.edit.id);if(i>=0)selectPart(i,checked.edit.start,checked.edit.end);return;}
+  working[id]=checked.review;if(complete)working[id].reviewed=true;
+  await persist(id);
   await session.save(id,working[id]);failed=false;
-  toast(complete?'검수 완료 · 음원과 라벨을 GitHub에 저장했습니다.':'음원과 라벨을 GitHub에 저장했습니다.');
+  toast((complete?'검수 완료 · 음원과 라벨을 GitHub에 저장했습니다.':'음원과 라벨을 GitHub에 저장했습니다.')+(checked.notice?' '+checked.notice:''));
  }catch(e){toast(e.message,true);$('error').textContent=e.message;$('error').hidden=false;}
- finally{saving=false;pending--;document.querySelector('.app-layout').inert=false;renderSources();renderFileState();status();}
+ finally{saving=false;checking=false;pending--;document.querySelector('.app-layout').inert=false;renderSources();renderFileState();status();}
 }
 $('save-record').onclick=()=>saveRemote();
 $('reload-record').onclick=async()=>{
@@ -74,7 +80,7 @@ function backup(forCommit=false){
  }
  h.undo.push(previous);if(h.undo.length>40)h.undo.shift();h.redo=[];
 }
-function changed(){review().reviewed=false;drafts.set(source().id,clone(draft));persist(source().id);renderSources();renderFileState();renderRegions();renderInspector();renderTimeline();}
+function changed(){review().reviewed=false;retainChecks(review());drafts.set(source().id,clone(draft));persist(source().id);renderSources();renderFileState();renderRegions();renderInspector();renderTimeline();}
 function travel(direction){
  const h=history(),from=h[direction],to=h[direction==='undo'?'redo':'undo'];if(!from.length)return;
  to.push(snapshot());const previous=from.pop();stopPlayback();working[source().id]=previous.value;review().reviewed=false;draft=previous.draft;

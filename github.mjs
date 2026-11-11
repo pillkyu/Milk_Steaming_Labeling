@@ -23,8 +23,9 @@ export class GitHubStore {
   return {head:head.object.sha,tree:commit.tree.sha,entries:tree.tree};
  }
  async jsonBlob(sha){const blob=await this.api(this.path(`/git/blobs/${sha}`));return JSON.parse(new TextDecoder().decode(fromBase64(blob.content)));}
- async list(){
-  const tree=await this.tree(),entries=tree.entries.filter(e=>/^recordings\/[a-f0-9]{64}\/record\.json$/.test(e.path)),result=[];
+ async list(tree){
+  tree??=await this.tree();
+  const entries=tree.entries.filter(e=>/^recordings\/[a-f0-9]{64}\/record\.json$/.test(e.path)),result=[];
   for(let i=0;i<entries.length;i+=4){
    result.push(...await Promise.all(entries.slice(i,i+4).map(async e=>{
     if(e.size>2*1024*1024)throw Error('라벨 파일이 너무 큽니다.');
@@ -36,6 +37,11 @@ export class GitHubStore {
    })));
   }
   return result;
+ }
+ async feedbackData(){
+  const tree=await this.tree(),seed=tree.entries.find(e=>e.path==='feedback/reference.json');
+  if(!seed||seed.size>8*1024*1024)throw Error('비교 자료를 준비하지 못했습니다.');
+  return {reference:tree.head,seed:await this.jsonBlob(seed.sha),entries:await this.list(tree)};
  }
  async audio(entry){
   const value=await this.api(this.path(`/git/blobs/${entry.audioSha}`)),bytes=fromBase64(value.content);

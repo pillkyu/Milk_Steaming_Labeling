@@ -18,3 +18,6 @@
 @media(max-width:760px){.timeline-panel{flex:0 0 275px;min-height:0;max-height:275px;overflow:hidden}}
 
 .upload-panel{margin:12px 0;padding:12px;border:1px solid #526171;border-radius:12px}.upload-panel button{width:100%;min-height:44px}.upload-panel p{margin:8px 0 0;overflow-wrap:anywhere}
+/* Keep the mobile action bar from covering label buttons when returning from recheck. */
+@media(max-width:760px){.inspector-footer{position:static}.label-options button,.range-fields{scroll-margin-top:290px}}
+@media(max-width:760px){.work-area{flex:none}.viewer{flex:none}.inspector-content{flex:none;min-height:auto}}
