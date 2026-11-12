@@ -4,3 +4,6 @@ test-results/
 *.log
 .env*
 recordings/
+
+__pycache__/
+*.pyc
