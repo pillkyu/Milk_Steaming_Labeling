@@ -23,13 +23,22 @@ export function validateFeedback(f,segments){
 }
 export function validateReference(seed){
  if(seed?.features!==featureVersion||!Array.isArray(seed.rows)||seed.rows.length>10000)throw Error('비교 자료 형식이 올바르지 않습니다.');
- for(const r of seed.rows)if(typeof r.group!=='string'||!r.group||r.group.length>100||!soundLabels.includes(r.label)||!validVector(r.vector))throw Error('비교 자료 특징이 올바르지 않습니다.');
+ for(const r of seed.rows){
+  if(typeof r.group!=='string'||!r.group||r.group.length>100||!soundLabels.includes(r.label)||!validVector(r.vector))throw Error('비교 자료 특징이 올바르지 않습니다.');
+  if(r.id!==undefined&&(typeof r.id!=='string'||!r.id||!Number.isFinite(r.start)||!Number.isFinite(r.end)||r.start<0||r.end<=r.start))throw Error('이관된 비교 구간 정보가 올바르지 않습니다.');
+ }
  return seed;
 }
 export function references(seed,entries,currentId){
  validateReference(seed);
  const replaced=new Set(entries.map(e=>e.record.source.id));replaced.add(currentId);
- const rows=seed.rows.filter(r=>!replaced.has(r.group));
+ const rows=seed.rows.filter(r=>{
+  if(!replaced.has(r.group))return true;
+  const record=entries.find(e=>e.record.source.id===r.group)?.record;
+  // 과거 검수 구간은 이관 후에도 라벨·경계·ID가 그대로인 동안만 기준으로 유지합니다.
+  return r.group!==currentId&&r.id!==undefined&&record&&!record.review.excluded&&record.review.segments.some(s=>sameSegment(r,s))&&
+   !record.review.feedback?.checks.some(c=>sameSegment(c,r)&&(record.review.reviewed||c.decision==='confirmed')&&c.decision!=='unscored'&&validVector(c.vector));
+ });
  for(const {record} of entries){
   if(record.source.id===currentId||record.review.excluded)continue;
   const f=record.review.feedback;if(!f||f.algorithm!==algorithm||f.features!==featureVersion)continue;

@@ -39,3 +39,15 @@ test('confirmation binds exact interval and label; corrupted metadata cannot ent
  }
  review.segments=[{...segment,end:.9}];retainChecks(review);assert.equal(review.feedback.checks.length,0);
 });
+
+test('imported reviewed seed intervals survive migration but not edits or exclusion',()=>{
+ const row={group:'migrated',...segment,vector:vector(0)},seed={features:featureVersion,rows:[row]};
+ const review={segments:[{...segment}],reviewed:false,excluded:false};
+ const entries=[{record:{source:{id:'migrated'},review}}];
+ assert.equal(references(seed,entries,'other').length,1);
+ assert.equal(references(seed,entries,'migrated').length,0);
+ review.segments[0].end=.8;assert.equal(references(seed,entries,'other').length,0);
+ review.segments=[{...segment}];review.excluded=true;assert.equal(references(seed,entries,'other').length,0);
+ review.excluded=false;review.feedback={algorithm,features:featureVersion,checks:[check()]};
+ assert.equal(references(seed,entries,'other').length,1);
+});

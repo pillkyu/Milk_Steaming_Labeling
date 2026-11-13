@@ -158,13 +158,15 @@ class Pipeline:
                 old_id=seen[digest]
                 if any(n['id']==old_id for n in new):raise RuntimeError('서로 다른 업로드가 같은 PCM입니다. 라벨 충돌을 확인하세요.')
                 superseded.add(old_id)
+            previous=next((s for s in sources if s['id']==(oldhash.get(sid) or seen.get(digest))),None)
             seen[digest]=sid
             segments=json.loads(json.dumps(review['segments']))
             for e in segments:
                 if e['end']>duration:e['end']=duration
                 if e['start']>=e['end']:raise RuntimeError('디코딩 후 음원 범위를 벗어난 구간입니다.')
-            new.append(dict(id=sid,title=s['title'],kind='recording',domain='home',origin='github',sourceGroup=s['sourceGroup'],sessionGroup=sid,
-                pcm=str(pcm),pcmSHA256=digest,duration=duration,features=str(self.root/'phase-features'/f'{sid}.f64'),segments=segments))
+            new.append(dict(id=sid,title=s['title'],kind='recording',domain='home',origin='github',sourceGroup=s['sourceGroup'],sessionGroup=previous['sessionGroup'] if previous else sid,
+                pcm=str(pcm),pcmSHA256=digest,duration=duration,features=str(self.root/'phase-features'/f'{sid}.f64'),segments=segments,
+                **({'fold':previous['fold']} if previous else {})))
         sources=[s for s in sources if s['id'] not in superseded]+new
         assign_folds(sources)
         for f in range(5):
