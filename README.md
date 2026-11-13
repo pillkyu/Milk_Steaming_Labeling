@@ -94,3 +94,16 @@ git subtree push --prefix site origin gh-pages
 ## 로컬 모델 학습
 
 이 Mac의 기존 학습 자산과 비공개 데이터 저장소를 연결한 실행기는 [training/README.md](training/README.md)에 있습니다. `training/run.command`를 실행하면 pull → 데이터 검사 → 특징 추출 → 학습 → CoreML 내보내기 → 오탐 평가를 순서대로 처리합니다. 원본·모델·실행 결과는 공개 저장소 바깥에 보관하며, 웹사이트나 앱 모델을 자동 교체하지 않습니다.
+
+## 과거·신규 홈 라벨 모아보기
+
+`viewer/view.command`를 더블클릭하면 이 Mac의 [통합 뷰어](http://127.0.0.1:8091)가 열립니다. 기존 `Analysis/PuffinFiveSounds20261027`의 홈 라벨과 로컬에 내려받은 `Milk_Steaming_Labeling_Data`를 함께 읽습니다. 과거 음원·라벨을 GitHub로 옮기지 않습니다.
+
+- 녹음 이름 검색과 소리 필터로 과거·신규 자료를 함께 찾습니다.
+- 구간의 **듣기**를 누르면 해당 범위만 재생하며 **구간 반복**을 켤 수 있습니다.
+- 분할 녹음은 원본 시간축으로 연결하고, 미검수·사용 제외 상태와 청소 방출·공기주입 세부 기록을 보존합니다.
+- **목록 새로고침**은 현재 로컬 라벨을 다시 읽습니다. **GitHub 최신 자료 받기**는 안전한 `git pull --ff-only` 후 목록을 갱신합니다. 로컬 수정이나 학습 중 충돌이 있으면 덮어쓰지 않고 중단합니다.
+
+보기 전용이며 라벨 편집·업로드 기능은 기존 사이트에서 사용합니다. 이 뷰어는 현재 Mac의 기존 자료 경로와 Python 환경을 사용하고 localhost에만 열립니다. 종료는 실행한 터미널에서 Ctrl+C입니다. 공개 Pages에는 배포하지 않습니다.
+
+검사: BillScanner에서 `.venv-clap/bin/python -m unittest discover -s Milk_Steaming_Labeling/viewer -p 'test_*.py'`로 절편 시각·검수 상태와 음원 범위 요청을 확인할 수 있습니다.
